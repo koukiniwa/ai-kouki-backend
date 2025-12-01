@@ -1,8 +1,10 @@
 from flask import Flask, request, jsonify
+from flask_cors import CORS
 from anthropic import Anthropic
 import os
 
 app = Flask(__name__)
+CORS(app)
 
 # Anthropic クライアント初期化（遅延初期化）
 client = None
