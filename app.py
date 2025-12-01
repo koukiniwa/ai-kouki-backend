@@ -83,7 +83,7 @@ def chat():
         
         # Claude API に送信
         response = get_client().messages.create(
-            model='claude-sonnet-4-20250514',
+            model='claude-3-5-sonnet-20241022',
             max_tokens=400,
             system=system_prompt,
             messages=conversation_history[session_id]
