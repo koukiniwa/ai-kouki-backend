@@ -87,23 +87,30 @@ def search_relevant_posts(query, max_results=3):
     if not posts:
         return []
 
-    # シンプルなキーワードマッチング
-    query_lower = query.lower()
     scored_posts = []
 
     for post in posts:
         score = 0
-        title = post['title'].lower()
-        content = post['content'].lower()
+        title = post['title']
+        content = post['content']
 
-        # クエリの各単語でスコアリング
-        for word in query_lower.split():
-            if len(word) < 2:
-                continue
-            if word in title:
-                score += 3  # タイトルマッチは高スコア
-            if word in content:
-                score += 1
+        # クエリ全体が含まれているかチェック
+        if query in title or query in content:
+            score += 5
+
+        # クエリの部分文字列でもチェック（日本語対応）
+        # 2文字以上の連続する部分でマッチング
+        for i in range(len(query)):
+            for j in range(i + 2, len(query) + 1):
+                substring = query[i:j]
+                # 記号や助詞を除外
+                if substring in ['って', 'what', 'what', 'って何', '何？', 'とは', 'について', 'ですか', 'って何？']:
+                    continue
+                if len(substring) >= 3:
+                    if substring in title:
+                        score += 3
+                    if substring in content:
+                        score += 1
 
         if score > 0:
             scored_posts.append((score, post))
