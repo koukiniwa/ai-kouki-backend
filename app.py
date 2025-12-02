@@ -129,8 +129,73 @@ def get_recent_posts(max_results=2):
     sorted_posts = sorted(posts, key=lambda x: x.get('date', ''), reverse=True)
     return sorted_posts[:max_results]
 
+def search_posts_by_date(query, max_results=3):
+    """日付に関連する記事を検索"""
+    posts = get_all_blog_posts()
+    if not posts:
+        return []
+
+    import re
+
+    # クエリから日付パターンを抽出
+    # 例: "10月29日", "10/29", "2025年10月", "2025.10.29", "11月"
+    matched_posts = []
+
+    # 月と日を抽出
+    month_match = re.search(r'(\d{1,2})月', query)
+    day_match = re.search(r'(\d{1,2})日', query)
+    year_match = re.search(r'(202\d)年', query)
+
+    # スラッシュ形式 (10/29)
+    slash_match = re.search(r'(\d{1,2})/(\d{1,2})', query)
+
+    for post in posts:
+        date_str = post.get('date', '')  # 例: "2025.10.29"
+
+        if not date_str:
+            continue
+
+        matched = False
+
+        # 年月日すべて指定された場合
+        if year_match and month_match and day_match:
+            year = year_match.group(1)
+            month = month_match.group(1).zfill(2)
+            day = day_match.group(1).zfill(2)
+            if f"{year}.{month}.{day}" in date_str:
+                matched = True
+
+        # 月日が指定された場合
+        elif month_match and day_match:
+            month = month_match.group(1).zfill(2)
+            day = day_match.group(1).zfill(2)
+            if f".{month}.{day}" in date_str:
+                matched = True
+
+        # スラッシュ形式
+        elif slash_match:
+            month = slash_match.group(1).zfill(2)
+            day = slash_match.group(2).zfill(2)
+            if f".{month}.{day}" in date_str:
+                matched = True
+
+        # 月だけ指定された場合
+        elif month_match:
+            month = month_match.group(1).zfill(2)
+            if f".{month}." in date_str:
+                matched = True
+
+        if matched:
+            matched_posts.append(post)
+
+    return matched_posts[:max_results]
+
 def build_context_with_blog(query):
     """関連ブログ記事をコンテキストとして構築"""
+    # 日付検索
+    date_posts = search_posts_by_date(query)
+    print(f'[DEBUG] 日付検索で{len(date_posts)}件の記事が見つかりました')
+
     # キーワードマッチで関連記事を検索
     relevant_posts = search_relevant_posts(query, max_results=2)
     print(f'[DEBUG] クエリ「{query}」で{len(relevant_posts)}件の関連記事が見つかりました')
@@ -139,20 +204,27 @@ def build_context_with_blog(query):
     recent_posts = get_recent_posts(max_results=2)
     print(f'[DEBUG] 最新記事{len(recent_posts)}件を取得')
 
-    # 重複を除いて結合
-    all_posts = relevant_posts.copy()
-    relevant_ids = {p['id'] for p in relevant_posts}
-    for post in recent_posts:
-        if post['id'] not in relevant_ids:
+    # 重複を除いて結合（日付検索を優先）
+    all_posts = date_posts.copy()
+    added_ids = {p['id'] for p in date_posts}
+
+    for post in relevant_posts:
+        if post['id'] not in added_ids:
             all_posts.append(post)
+            added_ids.add(post['id'])
+
+    for post in recent_posts:
+        if post['id'] not in added_ids:
+            all_posts.append(post)
+            added_ids.add(post['id'])
 
     if not all_posts:
         return ""
 
     context = "\n\n【参考：康揮のブログ記事】\n"
     for post in all_posts:
-        print(f'[DEBUG] 参照記事: {post["title"]}')
-        context += f"\n■ {post['title']}\n{post['content'][:500]}...\n" if len(post['content']) > 500 else f"\n■ {post['title']}\n{post['content']}\n"
+        print(f'[DEBUG] 参照記事: {post["title"]} ({post["date"]})')
+        context += f"\n■ {post['title']} ({post['date']})\n{post['content'][:500]}...\n" if len(post['content']) > 500 else f"\n■ {post['title']} ({post['date']})\n{post['content']}\n"
 
     return context
 
