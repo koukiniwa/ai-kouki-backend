@@ -119,16 +119,39 @@ def search_relevant_posts(query, max_results=3):
     scored_posts.sort(key=lambda x: x[0], reverse=True)
     return [post for score, post in scored_posts[:max_results]]
 
+def get_recent_posts(max_results=2):
+    """最新のブログ記事を取得"""
+    posts = get_all_blog_posts()
+    if not posts:
+        return []
+
+    # 日付でソート（新しい順）
+    sorted_posts = sorted(posts, key=lambda x: x.get('date', ''), reverse=True)
+    return sorted_posts[:max_results]
+
 def build_context_with_blog(query):
     """関連ブログ記事をコンテキストとして構築"""
-    relevant_posts = search_relevant_posts(query)
+    # キーワードマッチで関連記事を検索
+    relevant_posts = search_relevant_posts(query, max_results=2)
     print(f'[DEBUG] クエリ「{query}」で{len(relevant_posts)}件の関連記事が見つかりました')
-    if not relevant_posts:
+
+    # 最新記事を取得
+    recent_posts = get_recent_posts(max_results=2)
+    print(f'[DEBUG] 最新記事{len(recent_posts)}件を取得')
+
+    # 重複を除いて結合
+    all_posts = relevant_posts.copy()
+    relevant_ids = {p['id'] for p in relevant_posts}
+    for post in recent_posts:
+        if post['id'] not in relevant_ids:
+            all_posts.append(post)
+
+    if not all_posts:
         return ""
 
     context = "\n\n【参考：康揮のブログ記事】\n"
-    for post in relevant_posts:
-        print(f'[DEBUG] 関連記事: {post["title"]}')
+    for post in all_posts:
+        print(f'[DEBUG] 参照記事: {post["title"]}')
         context += f"\n■ {post['title']}\n{post['content'][:500]}...\n" if len(post['content']) > 500 else f"\n■ {post['title']}\n{post['content']}\n"
 
     return context
