@@ -2,6 +2,9 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 from anthropic import Anthropic
 import os
+import json
+import firebase_admin
+from firebase_admin import credentials, firestore
 
 app = Flask(__name__)
 CORS(app)
@@ -18,8 +21,101 @@ def get_client():
         client = Anthropic(api_key=api_key)
     return client
 
+# Firebase 初期化（遅延初期化）
+db = None
+
+def get_firestore_db():
+    global db
+    if db is None:
+        firebase_creds = os.environ.get('FIREBASE_CREDENTIALS')
+        if not firebase_creds:
+            raise ValueError("FIREBASE_CREDENTIALS is not set")
+        cred_dict = json.loads(firebase_creds)
+        cred = credentials.Certificate(cred_dict)
+        firebase_admin.initialize_app(cred)
+        db = firestore.client()
+    return db
+
 # 会話履歴（セッション管理）
 conversation_history = {}
+
+# ブログ記事キャッシュ
+blog_posts_cache = None
+
+def get_all_blog_posts():
+    """Firestoreから全ブログ記事を取得（キャッシュ付き）"""
+    global blog_posts_cache
+    if blog_posts_cache is not None:
+        return blog_posts_cache
+
+    try:
+        db = get_firestore_db()
+        posts_ref = db.collection('posts')
+        docs = posts_ref.stream()
+
+        posts = []
+        for doc in docs:
+            data = doc.to_dict()
+            # paragraphsを結合してコンテンツを作成
+            content = ''
+            if 'paragraphs' in data and isinstance(data['paragraphs'], list):
+                content = '\n'.join(data['paragraphs'])
+
+            posts.append({
+                'id': doc.id,
+                'title': data.get('title', ''),
+                'content': content,
+                'date': data.get('date', '')
+            })
+
+        blog_posts_cache = posts
+        return posts
+    except Exception as e:
+        print(f'ブログ記事取得エラー: {str(e)}')
+        return []
+
+def search_relevant_posts(query, max_results=3):
+    """ユーザーの質問に関連するブログ記事を検索"""
+    posts = get_all_blog_posts()
+    if not posts:
+        return []
+
+    # シンプルなキーワードマッチング
+    query_lower = query.lower()
+    scored_posts = []
+
+    for post in posts:
+        score = 0
+        title = post['title'].lower()
+        content = post['content'].lower()
+
+        # クエリの各単語でスコアリング
+        for word in query_lower.split():
+            if len(word) < 2:
+                continue
+            if word in title:
+                score += 3  # タイトルマッチは高スコア
+            if word in content:
+                score += 1
+
+        if score > 0:
+            scored_posts.append((score, post))
+
+    # スコア順にソートして上位を返す
+    scored_posts.sort(key=lambda x: x[0], reverse=True)
+    return [post for score, post in scored_posts[:max_results]]
+
+def build_context_with_blog(query):
+    """関連ブログ記事をコンテキストとして構築"""
+    relevant_posts = search_relevant_posts(query)
+    if not relevant_posts:
+        return ""
+
+    context = "\n\n【参考：康揮のブログ記事】\n"
+    for post in relevant_posts:
+        context += f"\n■ {post['title']}\n{post['content'][:500]}...\n" if len(post['content']) > 500 else f"\n■ {post['title']}\n{post['content']}\n"
+
+    return context
 
 # システムプロンプト（丹羽康揮）
 system_prompt = """あなたは丹羽康揮（にわこうき）というAIアバターです。
@@ -83,11 +179,17 @@ def chat():
             'content': user_message
         })
         
+        # 関連ブログ記事をコンテキストとして追加
+        blog_context = build_context_with_blog(user_message)
+        enhanced_system_prompt = system_prompt
+        if blog_context:
+            enhanced_system_prompt += f"\n\n以下はあなた（康揮）が書いたブログ記事の内容です。質問に関連する場合は、この情報を参考にして回答してください。ただし、話し方のスタイルは崩さないでください。{blog_context}"
+
         # Claude API に送信
         response = get_client().messages.create(
             model='claude-sonnet-4-20250514',
             max_tokens=400,
-            system=system_prompt,
+            system=enhanced_system_prompt,
             messages=conversation_history[session_id]
         )
         
