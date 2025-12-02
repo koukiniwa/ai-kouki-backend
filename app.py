@@ -46,9 +46,11 @@ def get_all_blog_posts():
     """Firestoreから全ブログ記事を取得（キャッシュ付き）"""
     global blog_posts_cache
     if blog_posts_cache is not None:
+        print(f'[DEBUG] キャッシュから{len(blog_posts_cache)}件の記事を返します')
         return blog_posts_cache
 
     try:
+        print('[DEBUG] Firestoreから記事を取得中...')
         db = get_firestore_db()
         posts_ref = db.collection('posts')
         docs = posts_ref.stream()
@@ -69,9 +71,12 @@ def get_all_blog_posts():
             })
 
         blog_posts_cache = posts
+        print(f'[DEBUG] Firestoreから{len(posts)}件の記事を取得しました')
         return posts
     except Exception as e:
-        print(f'ブログ記事取得エラー: {str(e)}')
+        print(f'[ERROR] ブログ記事取得エラー: {str(e)}')
+        import traceback
+        traceback.print_exc()
         return []
 
 def search_relevant_posts(query, max_results=3):
@@ -108,11 +113,13 @@ def search_relevant_posts(query, max_results=3):
 def build_context_with_blog(query):
     """関連ブログ記事をコンテキストとして構築"""
     relevant_posts = search_relevant_posts(query)
+    print(f'[DEBUG] クエリ「{query}」で{len(relevant_posts)}件の関連記事が見つかりました')
     if not relevant_posts:
         return ""
 
     context = "\n\n【参考：康揮のブログ記事】\n"
     for post in relevant_posts:
+        print(f'[DEBUG] 関連記事: {post["title"]}')
         context += f"\n■ {post['title']}\n{post['content'][:500]}...\n" if len(post['content']) > 500 else f"\n■ {post['title']}\n{post['content']}\n"
 
     return context
