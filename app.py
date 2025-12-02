@@ -46,11 +46,9 @@ def get_all_blog_posts():
     """Firestoreから全ブログ記事を取得（キャッシュ付き）"""
     global blog_posts_cache
     if blog_posts_cache is not None:
-        print(f'[DEBUG] キャッシュから{len(blog_posts_cache)}件の記事を返します')
         return blog_posts_cache
 
     try:
-        print('[DEBUG] Firestoreから記事を取得中...')
         db = get_firestore_db()
         posts_ref = db.collection('posts')
         docs = posts_ref.stream()
@@ -58,7 +56,6 @@ def get_all_blog_posts():
         posts = []
         for doc in docs:
             data = doc.to_dict()
-            # paragraphsを結合してコンテンツを作成
             content = ''
             if 'paragraphs' in data and isinstance(data['paragraphs'], list):
                 content = '\n'.join(data['paragraphs'])
@@ -71,14 +68,9 @@ def get_all_blog_posts():
             })
 
         blog_posts_cache = posts
-        print(f'[DEBUG] Firestoreから{len(posts)}件の記事を取得しました')
-        for p in posts[:3]:
-            print(f'[DEBUG] 記事例: タイトル=「{p["title"]}」 内容冒頭=「{p["content"][:50]}」')
         return posts
     except Exception as e:
-        print(f'[ERROR] ブログ記事取得エラー: {str(e)}')
-        import traceback
-        traceback.print_exc()
+        print(f'ブログ記事取得エラー: {str(e)}')
         return []
 
 def search_relevant_posts(query, max_results=3):
@@ -194,15 +186,12 @@ def build_context_with_blog(query):
     """関連ブログ記事をコンテキストとして構築"""
     # 日付検索
     date_posts = search_posts_by_date(query)
-    print(f'[DEBUG] 日付検索で{len(date_posts)}件の記事が見つかりました')
 
     # キーワードマッチで関連記事を検索
     relevant_posts = search_relevant_posts(query, max_results=2)
-    print(f'[DEBUG] クエリ「{query}」で{len(relevant_posts)}件の関連記事が見つかりました')
 
     # 最新記事を取得
     recent_posts = get_recent_posts(max_results=2)
-    print(f'[DEBUG] 最新記事{len(recent_posts)}件を取得')
 
     # 重複を除いて結合（日付検索を優先）
     all_posts = date_posts.copy()
@@ -223,7 +212,6 @@ def build_context_with_blog(query):
 
     context = "\n\n【参考：康揮のブログ記事】\n"
     for post in all_posts:
-        print(f'[DEBUG] 参照記事: {post["title"]} ({post["date"]})')
         context += f"\n■ {post['title']} ({post['date']})\n{post['content'][:500]}...\n" if len(post['content']) > 500 else f"\n■ {post['title']} ({post['date']})\n{post['content']}\n"
 
     return context
