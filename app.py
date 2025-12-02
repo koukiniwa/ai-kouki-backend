@@ -72,6 +72,8 @@ def get_all_blog_posts():
 
         blog_posts_cache = posts
         print(f'[DEBUG] Firestoreから{len(posts)}件の記事を取得しました')
+        for p in posts[:3]:
+            print(f'[DEBUG] 記事例: タイトル=「{p["title"]}」 内容冒頭=「{p["content"][:50]}」')
         return posts
     except Exception as e:
         print(f'[ERROR] ブログ記事取得エラー: {str(e)}')
