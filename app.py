@@ -41,12 +41,17 @@ conversation_history = {}
 
 # ブログ記事キャッシュ
 blog_posts_cache = None
+blog_cache_time = None
 
 def get_all_blog_posts():
-    """Firestoreから全ブログ記事を取得（キャッシュ付き）"""
-    global blog_posts_cache
-    if blog_posts_cache is not None:
-        return blog_posts_cache
+    """Firestoreから全ブログ記事を取得（キャッシュ付き、10分で更新）"""
+    global blog_posts_cache, blog_cache_time
+    import time
+
+    # キャッシュが10分以内なら使う
+    if blog_posts_cache is not None and blog_cache_time is not None:
+        if time.time() - blog_cache_time < 600:  # 10分 = 600秒
+            return blog_posts_cache
 
     try:
         db = get_firestore_db()
@@ -68,6 +73,7 @@ def get_all_blog_posts():
             })
 
         blog_posts_cache = posts
+        blog_cache_time = time.time()
         return posts
     except Exception as e:
         print(f'ブログ記事取得エラー: {str(e)}')
