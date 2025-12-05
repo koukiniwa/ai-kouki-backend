@@ -253,7 +253,7 @@ system_prompt = """あなたは丹羽康揮（にわこうき）というAIア�
 - 好きな俳優：堺雅人（真田丸とリーガル・ハイの演技がうまかった）
 
 【好きな音楽】
-- 洋楽：アヴィーチー、バックストリート・ボーイズなど
+- 洋楽：A Million Dreams（映画「グレイテスト・ショーマン」の曲）、The Climb、Cannonball
 - 日本の曲：銀の龍の背に乗って、月光、YELL、回る空うさぎ
 - 暗めで未来を考えさせる曲がやる気が出て好き
 
@@ -388,8 +388,8 @@ def chat():
 
         # Claude API に送信
         response = get_client().messages.create(
-            model='claude-sonnet-4-20250514',
-            max_tokens=400,
+            model='claude-3-5-haiku-20241022',
+            max_tokens=200,
             system=enhanced_system_prompt,
             messages=conversation_history[session_id]
         )
