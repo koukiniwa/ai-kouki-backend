@@ -1,10 +1,11 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, Response
 from flask_cors import CORS
 from anthropic import Anthropic
 import os
 import json
 import firebase_admin
 from firebase_admin import credentials, firestore
+import requests
 
 app = Flask(__name__)
 CORS(app)
@@ -413,6 +414,51 @@ def chat():
     
     except Exception as e:
         print(f'エラー: {str(e)}')
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/tts', methods=['POST'])
+def text_to_speech():
+    """テキストを音声に変換するエンドポイント"""
+    try:
+        data = request.json
+        text = data.get('text')
+
+        if not text:
+            return jsonify({'error': 'テキストが空です'}), 400
+
+        # ElevenLabs API設定
+        elevenlabs_api_key = os.environ.get('ELEVENLABS_API_KEY')
+        voice_id = os.environ.get('ELEVENLABS_VOICE_ID', 'nqkmNHx4hSecnBDJh39A')
+
+        if not elevenlabs_api_key:
+            return jsonify({'error': 'ElevenLabs APIキーが設定されていません'}), 500
+
+        # ElevenLabs APIに送信
+        url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
+        headers = {
+            "Accept": "audio/mpeg",
+            "Content-Type": "application/json",
+            "xi-api-key": elevenlabs_api_key
+        }
+        payload = {
+            "text": text,
+            "model_id": "eleven_multilingual_v2",
+            "voice_settings": {
+                "stability": 0.5,
+                "similarity_boost": 0.75
+            }
+        }
+
+        response = requests.post(url, json=payload, headers=headers)
+
+        if response.status_code != 200:
+            return jsonify({'error': f'音声生成エラー: {response.text}'}), 500
+
+        # 音声データを返す
+        return Response(response.content, mimetype='audio/mpeg')
+
+    except Exception as e:
+        print(f'TTSエラー: {str(e)}')
         return jsonify({'error': str(e)}), 500
 
 @app.route('/', methods=['GET'])
