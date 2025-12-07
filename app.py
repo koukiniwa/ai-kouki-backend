@@ -394,6 +394,44 @@ def chat():
         print(f'エラー: {str(e)}')
         return jsonify({'error': str(e)}), 500
 
+def split_text(text, max_length=100):
+    """テキストを句読点で分割（最大文字数を考慮）"""
+    if len(text) <= max_length:
+        return [text]
+
+    chunks = []
+    current_chunk = ""
+
+    # 句点・読点で分割
+    sentences = text.replace('。', '。\n').replace('、', '、\n').replace('！', '！\n').replace('？', '？\n').split('\n')
+
+    for sentence in sentences:
+        sentence = sentence.strip()
+        if not sentence:
+            continue
+
+        # 現在のチャンクに追加できるか確認
+        if len(current_chunk) + len(sentence) <= max_length:
+            current_chunk += sentence
+        else:
+            # 現在のチャンクを保存
+            if current_chunk:
+                chunks.append(current_chunk)
+
+            # 1文が長すぎる場合は強制分割
+            if len(sentence) > max_length:
+                for i in range(0, len(sentence), max_length):
+                    chunks.append(sentence[i:i+max_length])
+                current_chunk = ""
+            else:
+                current_chunk = sentence
+
+    # 残りを追加
+    if current_chunk:
+        chunks.append(current_chunk)
+
+    return chunks
+
 @app.route('/api/tts', methods=['POST'])
 def text_to_speech():
     """テキストを音声に変換するエンドポイント"""
@@ -411,31 +449,43 @@ def text_to_speech():
         if not elevenlabs_api_key:
             return jsonify({'error': 'ElevenLabs APIキーが設定されていません'}), 500
 
-        # ElevenLabs APIに送信
+        # テキストを分割
+        text_chunks = split_text(text, max_length=100)
+
+        # 各チャンクを音声に変換して結合
+        audio_chunks = []
+
         url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
         headers = {
             "Accept": "audio/mpeg",
             "Content-Type": "application/json",
             "xi-api-key": elevenlabs_api_key
         }
-        payload = {
-            "text": text,
-            "model_id": "eleven_multilingual_v2",
-            "voice_settings": {
-                "stability": 0.7,
-                "similarity_boost": 0.85,
-                "style": 0.0,
-                "use_speaker_boost": True
+
+        for chunk in text_chunks:
+            payload = {
+                "text": chunk,
+                "model_id": "eleven_multilingual_v2",
+                "voice_settings": {
+                    "stability": 0.7,
+                    "similarity_boost": 0.85,
+                    "style": 0.0,
+                    "use_speaker_boost": True
+                }
             }
-        }
 
-        response = requests.post(url, json=payload, headers=headers)
+            response = requests.post(url, json=payload, headers=headers)
 
-        if response.status_code != 200:
-            return jsonify({'error': f'音声生成エラー: {response.text}'}), 500
+            if response.status_code != 200:
+                return jsonify({'error': f'音声生成エラー: {response.text}'}), 500
+
+            audio_chunks.append(response.content)
+
+        # 音声データを結合
+        combined_audio = b''.join(audio_chunks)
 
         # 音声データを返す
-        return Response(response.content, mimetype='audio/mpeg')
+        return Response(combined_audio, mimetype='audio/mpeg')
 
     except Exception as e:
         print(f'TTSエラー: {str(e)}')
