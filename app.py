@@ -432,6 +432,75 @@ def split_text(text, max_length=100):
 
     return chunks
 
+# 読み仮名辞書（TTS用）
+reading_corrections = {
+    # 人名
+    '丹羽康揮': 'にわこうき',
+    '康揮': 'こうき',
+    '丹羽': 'にわ',
+
+    # 店名・場所
+    '丸源ラーメン': 'まるげんラーメン',
+    '丸源': 'まるげん',
+    '土佐角弘水産': 'とさかくひろすいさん',
+    'メフィストフェレス': 'メフィストフェレス',
+    '高知大学': 'こうちだいがく',
+    '高知': 'こうち',
+
+    # 自然・場所
+    '海': 'うみ',
+    '海沿い': 'うみぞい',
+    '岐阜県': 'ぎふけん',
+    '岐阜': 'ぎふ',
+
+    # よく使う単語
+    '申し訳ない': 'もうしわけない',
+    '仕方ない': 'しかたない',
+    '仕方なくない': 'しかたなくない',
+    '気まず': 'きまず',
+    '今んとこ': 'いまんとこ',
+    '双子': 'ふたご',
+    '姉': 'あね',
+    '妹': 'いもうと',
+
+    # 動物・ペット
+    'モナカ': 'モナカ',
+    'トイプードル': 'トイプードル',
+
+    # 季節・イベント
+    '正月': 'しょうがつ',
+    'クリスマス': 'クリスマス',
+
+    # 食べ物
+    'ラーメン': 'ラーメン',
+    'ハンバーガー': 'ハンバーガー',
+    'ししゃも': 'ししゃも',
+    'しらす': 'しらす',
+
+    # 人名・有名人
+    'イーロン・マスク': 'イーロン マスク',
+    '堺雅人': 'さかいまさと',
+    '成田悠輔': 'なりたゆうすけ',
+
+    # 大学関連
+    '農林海洋科学部': 'のうりんかいようかがくぶ',
+    'テニスサークル': 'テニスサークル',
+
+    # アプリ・サービス
+    'ネットシティベータ': 'ネットシティベータ',
+    'YouTube': 'ユーチューブ',
+    'ヤフーニュース': 'ヤフーニュース',
+
+    # その他追加したい読み間違い修正をここに追加
+}
+
+def correct_reading(text):
+    """テキストの読み間違いを修正"""
+    corrected_text = text
+    for wrong, correct in reading_corrections.items():
+        corrected_text = corrected_text.replace(wrong, correct)
+    return corrected_text
+
 @app.route('/api/tts', methods=['POST'])
 def text_to_speech():
     """テキストを音声に変換するエンドポイント"""
@@ -441,6 +510,9 @@ def text_to_speech():
 
         if not text:
             return jsonify({'error': 'テキストが空です'}), 400
+
+        # 読み仮名を修正
+        text = correct_reading(text)
 
         # ElevenLabs API設定
         elevenlabs_api_key = os.environ.get('ELEVENLABS_API_KEY')
@@ -484,8 +556,12 @@ def text_to_speech():
         # 音声データを結合
         combined_audio = b''.join(audio_chunks)
 
-        # 音声データを返す
-        return Response(combined_audio, mimetype='audio/mpeg')
+        # 音声データを返す（スマホ対応のヘッダー追加）
+        response = Response(combined_audio, mimetype='audio/mpeg')
+        response.headers['Content-Length'] = str(len(combined_audio))
+        response.headers['Accept-Ranges'] = 'bytes'
+        response.headers['Cache-Control'] = 'no-cache'
+        return response
 
     except Exception as e:
         print(f'TTSエラー: {str(e)}')
