@@ -9,6 +9,7 @@ app = Flask(__name__)
 
 
 @app.route('/api/tts', methods=['POST', 'OPTIONS'])
+@app.route('/', methods=['POST', 'OPTIONS'])
 def tts():
     if request.method == 'OPTIONS':
         resp = jsonify({})

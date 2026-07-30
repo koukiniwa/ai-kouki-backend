@@ -14,6 +14,7 @@ app = Flask(__name__)
 
 
 @app.route('/api/chat', methods=['POST', 'OPTIONS'])
+@app.route('/', methods=['POST', 'OPTIONS'])
 def chat():
     if request.method == 'OPTIONS':
         resp = jsonify({})
