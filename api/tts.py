@@ -1,6 +1,8 @@
 from http.server import BaseHTTPRequestHandler
 import json
+import sys
 import os
+sys.path.insert(0, os.path.dirname(__file__))
 import requests
 from _utils import correct_reading, split_text
 
