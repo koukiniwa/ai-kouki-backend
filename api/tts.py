@@ -2,7 +2,7 @@ from http.server import BaseHTTPRequestHandler
 import json
 import os
 import requests
-from api._utils import correct_reading, split_text
+from _utils import correct_reading, split_text
 
 
 class handler(BaseHTTPRequestHandler):
