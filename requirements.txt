@@ -1,3 +1,4 @@
+Flask==2.3.3
 anthropic>=0.40.0
 firebase-admin>=6.2.0
 requests>=2.31.0

@@ -1,10 +1,9 @@
-from http.server import BaseHTTPRequestHandler
-import json
+from flask import Flask, jsonify
+
+app = Flask(__name__)
 
 
-class handler(BaseHTTPRequestHandler):
-    def do_GET(self):
-        self.send_response(200)
-        self.send_header('Content-Type', 'application/json')
-        self.end_headers()
-        self.wfile.write(json.dumps({'message': 'AI こうき バックエンド API'}).encode())
+@app.route('/', methods=['GET'])
+@app.route('/api/index', methods=['GET'])
+def index():
+    return jsonify({'message': 'AI こうき バックエンド API'})
