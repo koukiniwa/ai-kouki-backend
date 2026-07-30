@@ -79,6 +79,15 @@ def catch_all(path):
         return handle_options()
 
     if route == 'chat':
-        return handle_chat()
+        if request.method == 'POST':
+            return handle_chat()
+        return cors_response({'error': 'Method not allowed'}, 405)
 
-    return jsonify({'message': 'AI こうき バックエンド API'})
+    return cors_response({
+        'message': 'AI こうき バックエンド API',
+        'debug_method': request.method,
+        'debug_route': route,
+        'debug_path': request.path,
+        'debug_content_type': request.content_type,
+        'debug_data_length': request.content_length,
+    })
