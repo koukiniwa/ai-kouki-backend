@@ -28,7 +28,7 @@ def handle_options():
 
 def handle_chat():
     try:
-        data = request.get_json()
+        data = request.get_json(force=True)
         user_message = data.get('message')
         session_id = data.get('session_id', 'default')
 
