@@ -13,28 +13,27 @@ from _utils import (
 app = Flask(__name__)
 
 
-@app.route('/', methods=['GET'])
-@app.route('/api/index', methods=['GET'])
-def index():
-    return jsonify({'message': 'AI こうき バックエンド API'})
+def cors_response(data, status=200):
+    resp = jsonify(data)
+    resp.status_code = status
+    resp.headers['Access-Control-Allow-Origin'] = '*'
+    resp.headers['Access-Control-Allow-Methods'] = 'POST, OPTIONS'
+    resp.headers['Access-Control-Allow-Headers'] = 'Content-Type'
+    return resp
 
 
-@app.route('/api/chat', methods=['POST', 'OPTIONS'])
-def chat():
-    if request.method == 'OPTIONS':
-        resp = jsonify({})
-        resp.headers['Access-Control-Allow-Origin'] = '*'
-        resp.headers['Access-Control-Allow-Methods'] = 'POST, OPTIONS'
-        resp.headers['Access-Control-Allow-Headers'] = 'Content-Type'
-        return resp
+def handle_options():
+    return cors_response({})
 
+
+def handle_chat():
     try:
         data = request.get_json()
         user_message = data.get('message')
         session_id = data.get('session_id', 'default')
 
         if not user_message:
-            return jsonify({'error': 'メッセージが空です'}), 400
+            return cors_response({'error': 'メッセージが空です'}, 400)
 
         messages = get_conversation_history(session_id)
 
@@ -64,13 +63,22 @@ def chat():
 
         save_conversation_history(session_id, messages)
 
-        resp = jsonify({'reply': ai_reply})
-        resp.headers['Access-Control-Allow-Origin'] = '*'
-        return resp
+        return cors_response({'reply': ai_reply})
 
     except Exception as e:
         print(f'エラー: {str(e)}')
-        resp = jsonify({'error': str(e)})
-        resp.status_code = 500
-        resp.headers['Access-Control-Allow-Origin'] = '*'
-        return resp
+        return cors_response({'error': str(e)}, 500)
+
+
+@app.route('/', defaults={'path': ''}, methods=['GET', 'POST', 'OPTIONS'])
+@app.route('/<path:path>', methods=['GET', 'POST', 'OPTIONS'])
+def catch_all(path):
+    route = request.args.get('route', '')
+
+    if request.method == 'OPTIONS':
+        return handle_options()
+
+    if route == 'chat':
+        return handle_chat()
+
+    return jsonify({'message': 'AI こうき バックエンド API'})
