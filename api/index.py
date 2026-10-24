@@ -2,6 +2,7 @@ from flask import Flask, request, jsonify
 import sys
 import os
 sys.path.insert(0, os.path.dirname(__file__))
+import random
 from _utils import (
     get_client,
     get_conversation_history,
@@ -46,6 +47,10 @@ def handle_chat():
         enhanced_system_prompt = system_prompt
         if blog_context:
             enhanced_system_prompt += f"\n\n以下はあなた（康揮）が書いたブログ記事の内容です。質問に関連する場合は、この情報を参考にして回答してください。ただし、話し方のスタイルは崩さないでください。{blog_context}"
+
+        # 20%の確率でクイズ提案を注入
+        if random.random() < 0.2:
+            enhanced_system_prompt += "\n\n【重要な指示】この返答の中で、都道府県クイズを提案してください。例：「そうだ、クイズやらん？俺が行ったことある県を当ててみて！」のように自然に切り出してください。"
 
         response = get_client().messages.create(
             model='claude-haiku-4-5-20251001',
